@@ -7,13 +7,13 @@ T = 200
 β = 0.05
 γ1, γ2 = 0.015, 0.02
 δ1, δ2 = 0.02, 0.2  #   0.02, 0.2
-ϵ1, ϵ2, ϵ3, ϵ4 = 1.0, 0.7, 0.7, 0.02
-ζ1, ζ2, ζ3 = 1.0, fill(300.0, T), 0.0232   #   ζ2[1] = k[1]
+ϵ1, ϵ2, ϵ3, ϵ4 = 1.0, 0.7, 0.7, 0.05
+ζ1, ζ2, ζ3 = 1.0, fill(300.0, T), 0.0215   #   ζ2[1] = k[1]
 θ1, θ2 = 0.2, 0.1
 ι1, ι2, ι3, ι4, ι5 = 0.1, 1.0, 0.5, 0.5, 10.0
 λe = 0.5
-μ1, μ2, μ3 = 0.3, 0.05, 0.5
-τ1, τ2 = 0.3, 0.2
+μ1, μ2, μ3 = 0.3, 0.1, 0.5
+τ1, τ2 = 0.2, 0.2
 mu = 0.2
 uT = 0.8
 G0 = 100.0
@@ -45,7 +45,12 @@ u, Δu, ue = zeros(T), zeros(T), zeros(T)
 Δei, Δeb, ΔEi, ΔEb, ΔE = zeros(T), zeros(T), zeros(T), zeros(T), zeros(T)
 ΔHw, ΔHb, ΔH = zeros(T), zeros(T), zeros(T)
 Δp, Δpe = zeros(T), zeros(T), zeros(T)
-
+Le, Hbe, Ebe = zeros(T), zeros(T), zeros(T)
+We, Tiwe, Tewe = zeros(T), zeros(T), zeros(T)
+Πie, Tiie, Teie = zeros(T), zeros(T), zeros(T)
+ΔW, ΔTiw, ΔTew = zeros(T), zeros(T), zeros(T)
+ΔΠi, ΔTii, ΔTei = zeros(T), zeros(T), zeros(T)
+ΔCi, ΔCw = zeros(T), zeros(T)
 
 #   初期値設定
 K[1] = 300
@@ -58,7 +63,7 @@ G[1], gD[1] = G0, G0
 Wf[1], Wg[1], W[1], wg[1] = 1.0*G0, 0.5*G0, 1.5*G0, 0.5*G0
 p[1], pe[1] = 1.0, 1.0
 k[1] = K[1]/p[1]
-CwD[1], CiD[1] = 1.0*G0, 0.0
+CwD[1], CiD[1] = 1.0*G0, 0.1*G0
 Cw[1], Ci[1] = CwD[1]/max(1, (CwD[1] + CiD[1])/(p[1]*ζ1*k[1])), CiD[1]/max(1, (CwD[1] + CiD[1])/(p[1]*ζ1*k[1]))
 cw[1], ci[1] = Cw[1]/p[1], Ci[1]/p[1]
 C[1], c[1] = Cw[1] + Ci[1], cw[1] + ci[1]
@@ -68,6 +73,10 @@ ue[1] = u[1]
 Πi[1] = max(0, θ1*(Π[1]-I[1])*Ei[1]/E[1] + θ2*(Mf[1]-Lf[1]))
 Πb[1] = max(0, θ1*(Π[1]-I[1])*Eb[1]/E[1] + θ2*(Mf[1]-Lf[1]))
 Πf[1] = Π[1] - Πi[1] - Πb[1]
+Tiw[1], Tii[1], Tei[1], Tew[1] = τ1*W[1], τ1*Πi[1], γ2*(Mi[1] + Ei[1]), γ2*(Mw[1] + Hw[1])
+Le[1], Hbe[1], Ebe[1] = L[1], Hb[1], Eb[1]
+We[1], Tiwe[1], Tewe[1] = W[1], Tiw[1], Tew[1]
+Πie[1], Tiie[1], Teie[1] = Πi[1], Tii[1], Tei[1]
 
 #   会計的整合性を満たすように、残りの変数の値を決める
 #   初期値の計算においては、使わない会計恒等式も多い
@@ -77,6 +86,8 @@ NLi[1] = Πi[1] - Ci[1] - Tii[1] - Tei[1]  # i[1] = 0を仮定
 ΔMi[1] = NLi[1]  # Δei[1] = 0ということにする
 NLf[1] = Πf[1]  # i[1] = 0を仮定
 ΔMf[1] = NLf[1] # ΔLf[1] = 0を仮定
+Ti[1] = Tiw[1] + Tii[1]
+Te[1] = Tew[1] + Tei[1] + Tef[1]
 ΔM[1] = ΔMw[1] + ΔMi[1] + ΔMf[1]
 ΔL[1] = ΔLw[1] + ΔLf[1]
 NLb[1] = -Tfb[1] + Πb[1] + r*L[1]
@@ -112,26 +123,42 @@ end
 #   シミュレーション実行
 for t = 2:T
     ζ2[t] = ζ2[t-1]*(1 + ζ3*abs(randn()))
-    Wf[t] = (1.0 - ϵ1)*Wf[t-1] + ϵ1*max(0.0, (Wf[t-1] + Π[t-1] - I[t-1])*ϵ3)
-    Wb[t] = (1.0 - ϵ1)*Wb[t-1] + ϵ1*max(0, ϵ2*(Πb[t-1] + r*L[t-1]) + ϵ4*NWb[t-1])
-    ue[t] = ((1 - λe)*ue[t-1] + λe*u[t-1])*u[t-1]/(u[t-1]+Δu[t-1])
-    p[t] = p[t-1]*exp(μ3*(ue[t] - uT))
+    ue[t] = ((1 - λe)*ue[t-1] + λe*u[t-1])*u[t-1]/(u[t-1]-Δu[t-1])
+    p[t] = p[t-1]*exp(μ3*(max(ue[t], (CwD[t-1] + CiD[t-1] + GD[t-1])/(p[t-1]*ζ2[t-1])) - uT))
     Δp[t] = p[t] - p[t-1]
-    wg[t] = wg[t-1]*(1.0 + δ1 - δ2*(p[t]-p[t-1])/p[t-1])
-    Wg[t] = p[t]*wg[t-1]
-    W[t] = Wf[t] + Wg[t] + Wb[t]
-    if Eb[t-1] < μ1*(L[t-1] + Hb[t-1] + Eb[t-1])
+    Le[t] = ((1 - λe)*Le[t-1] + λe*L[t-1])*L[t-1]/(L[t-1]-ΔL[t-1])
+    Hbe[t] = ((1 - λe)*Hbe[t-1] + λe*Hb[t-1])*Hb[t-1]/(Hb[t-1]-ΔHb[t-1])
+    if Ebe[t-1] <= 0.0
+        Ebe[t] = 0.0
+    else
+        Ebe[t] = ((1 - λe)*Ebe[t-1] + λe*Eb[t-1])*Eb[t-1]/(Eb[t-1]-ΔEb[t-1])
+    end
+    if Ebe[t] < μ1*(Le[t] + Hbe[t] + Ebe[t])
         pe[t] = pe[t-1]*exp(μ2*abs(randn()))
     else
         pe[t] = pe[t-1]*exp(-μ2*abs(randn()))
     end
+    Wf[t] = (1.0 - ϵ1)*Wf[t-1] + ϵ1*max(0.0, (Wf[t-1] + Π[t-1] - I[t-1])*ϵ3)
+    Wb[t] = (1.0 - ϵ1)*Wb[t-1] + ϵ1*max(0.0, ϵ2*(Πb[t-1] + r*L[t-1]) + ϵ4*(Hb[t-1] - M[t-1]))
+    wg[t] = wg[t-1]*(1.0 + δ1 - δ2*(p[t]-p[t-1])/p[t-1])
+    Wg[t] = p[t]*wg[t-1]
+    W[t] = Wf[t] + Wg[t] + Wb[t]
+    ΔW[t] = W[t] - W[t-1]
     Δpe[t] = pe[t] - pe[t-1]
     gD[t] = gD[t-1]*(1.0 + δ1 - δ2*(p[t]-p[t-1])/p[t-1])
     GD[t] = p[t]*gD[t]
-    CwD[t] = (1 - α5)*CwD[t-1] + α5*max(0, α1*(W[t-1]-Tiw[t-1]-Tew[t-1]-r*Lw[t-1]) + α2*(Mw[t-1] + Hw[t-1] - Lw[t-1]))
-    CiD[t] = (1 - α5)*CiD[t-1] + α5*max(0, α3*(Πi[t-1]-Tii[t-1]-Tei[t-1]) + α4*(Mi[t-1] + Ei[t-1]))
+    We[t] = ((1 - λe)*We[t-1] + λe*W[t-1])*W[t-1]/(W[t-1]-ΔW[t-1])
+    Tiwe[t] = ((1 - λe)*Tiwe[t-1] + λe*Tiw[t-1])*Tiw[t-1]/(Tiw[t-1]-ΔTiw[t-1])
+    Tewe[t] = ((1 - λe)*Tewe[t-1] + λe*Tew[t-1])*Tew[t-1]/(Tew[t-1]-ΔTew[t-1])
+    CwD[t] = (1 - α5)*CwD[t-1] + α5*max(0, α1*(We[t]-Tiwe[t]-Tewe[t]-r*Lw[t-1]) + α2*(Mw[t-1] + Hw[t-1] - Lw[t-1]))*Cw[t-1]/(Cw[t-1]-ΔCw[t-1])
+    Πie[t] = ((1 - λe)*Πie[t-1] + λe*Πi[t-1])*Πi[t-1]/(Πi[t-1]-ΔΠi[t-1])
+    Tiie[t] = ((1 - λe)*Tiie[t-1] + λe*Tii[t-1])*Tii[t-1]/(Tii[t-1]-ΔTii[t-1])
+    Teie[t] = ((1 - λe)*Teie[t-1] + λe*Tei[t-1])*Tei[t-1]/(Tei[t-1]-ΔTei[t-1])
+    CiD[t] = (1 - α5)*CiD[t-1] + α5*max(0, α3*(Πie[t]-Tiie[t]-Teie[t]) + α4*(Mi[t-1] + Ei[t-1]))*Ci[t-1]/(Ci[t-1]-ΔCi[t-1])
     Cw[t] = CwD[t]/max(1, (CwD[t] + CiD[t] + GD[t])/(p[t]*min(ζ1*k[t-1], ζ2[t])))
+    ΔCw[t] = Cw[t] - Cw[t-1]
     Ci[t] = CiD[t]/max(1, (CwD[t] + CiD[t] + GD[t])/(p[t]*min(ζ1*k[t-1], ζ2[t])))
+    ΔCi[t] = Ci[t] - Ci[t-1]
     C[t] = Cw[t] + Ci[t]
     c[t] = C[t]/p[t]
     G[t] = GD[t]/max(1, (CwD[t] + CiD[t] + GD[t])/(p[t]*min(ζ1*k[t-1], ζ2[t])))
@@ -140,6 +167,7 @@ for t = 2:T
     Δu[t] = u[t] - u[t-1]
     Tef[t] = γ1*K[t-1]
     Tei[t] = γ2*(Mi[t-1] + Ei[t-1])
+    ΔTei[t] = Tei[t] - Tei[t-1]
     Tew[t] = γ2*(Mw[t-1] + Hw[t-1])
     Te[t] = Tef[t] + Tei[t] + Tew[t]
     i[t] = btw(0, (u[t-1] - uT)*k[t-1] + β*k[t-1], max(0, (Mf[t-1] - Lf[t-1])/p[t]))
@@ -149,12 +177,15 @@ for t = 2:T
     K[t] = p[t-1]*k[t-1] + Δp[t]*k[t-1] + p[t]*Δk[t]
     ΔK[t] = K[t] - K[t-1]
     Tii[t] = τ1*Πi[t-1]
+    ΔTii[t] = Tii[t] - Tii[t-1]
     Tiw[t] = τ1*W[t-1]
+    ΔTiw[t] = Tiw[t] - Tiw[t-1]
     Ti[t] = Tii[t] + Tiw[t]
     Tff[t] = τ2*(C[t] + I[t] + G[t] - Wf[t] - Tef[t] - r*Lf[t-1])
     Π[t] = C[t] + I[t] + G[t] - Wf[t] - Tef[t] - Tff[t] - r*Lf[t-1]
-    Πi[t] = max(0, θ1*(Π[t] - I[t])*Ei[t-1]/E[t-1] + θ2*(Mf[t-1] - Lf[t-1]))
-    Πb[t] = max(0, θ1*(Π[t] - I[t])*Eb[t-1]/E[t-1] + θ2*(Mf[t-1] - Lf[t-1]))
+    Πi[t] = max(0, (θ1*(Π[t] - I[t]) + θ2*(Mf[t-1] - Lf[t-1]))*Ei[t-1]/E[t-1])
+    ΔΠi[t] = Πi[t] - Πi[t-1]
+    Πb[t] = max(0, (θ1*(Π[t] - I[t]) + θ2*(Mf[t-1] - Lf[t-1]))*Eb[t-1]/E[t-1])
     Πf[t] = Π[t] - Πi[t] - Πb[t]
     Tfb[t] = max(0, τ2*(Πb[t] + r*L[t-1] - Wb[t]))
     Tf[t] = Tff[t] + Tfb[t]
@@ -176,7 +207,9 @@ for t = 2:T
     NWf[t] = NWf[t-1] + NLf[t] - ΔE[t] + ΔK[t]
     NWb[t] = NWb[t-1] + NLb[t] + Δpe[t]*eb[t-1]
     NWg[t] = NWg[t-1] + NLg[t]
-    Ei[t] = min(ι3*NWi[t], E[t])
+    Ei[t] = min(ι3*NWi[t], E[t])    #TODO   ここのアルゴリズムか、peのアルゴリズムを、ei,ebが偏りすぎないように変更
+    #   ポートフォリオ配分目標を提示→目標額に応じて時価総額が決定→株式の数量から株価を計算
+    #   投資家にLiを追加し、流動性調達を保証する。
     ei[t] = Ei[t]/pe[t]
     ΔEi[t] = Ei[t] - Ei[t-1]
     Δei[t] = ei[t] - ei[t-1]

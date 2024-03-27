@@ -13,6 +13,8 @@
 - [6. 今後発展させる方向性について](#6-今後発展させる方向性について)
 
 
+**TODO: simulation.jlの内容を反映させる**
+
 将来的に、余裕があれば、このレジュメに各行動方程式とパラメータの説明を加えたい
 
 # 1. モデルでやりたいことリスト
@@ -35,19 +37,18 @@
 # 2. 行動方程式、上から計算
 
 - $\zeta_2 = \zeta_{2-1} (1 + \zeta_3 \cdot abs(randn()))$
-- $W_f = (1.0 - \epsilon_1)W_{f-1} + \epsilon_1 \cdot \max(0.0, \epsilon_3(W_{f-1} + \Pi_{-1} - I_{-1}))$
-- $W_b = (1.0 - \epsilon_1)W_{b-1} + \epsilon_1 \cdot \max(0, \epsilon_2(\Pi_{b-1} + r L_{-1}) + \epsilon_4 NW_{b-1})$
-- $u^e = ((1-\lambda_e)u^e_{-1} + \lambda_e u_{-1})u_{-1}/(u_{-1}+\Delta u_{-1})$
-- $p = p_{-1} \exp\{\mu_3 (u_{-1} - u^T)\}$
-- $w_g = w_{g-1}(1 + \delta_1 - \delta_2 \frac{p-p_{-1}}{p_{-1}})$
+- $p = p_{-1} \exp\{\mu_3 (\max(u^e_{-1}, \frac{C_{w-1}^D + C_{i-1}^D + G_{-1}^D}{p_{-1} ζ_{2-1}}) - u^T)\}$
 - if $E_{b-1} < \mu_1(L_{-1} + H_{b-1} + E_{b-1})$
   - $p_e = p_{e-1} \exp(\mu_2 \cdot abs(randn()))$
 - else
   - $p_e = p_{e-1} \exp(-\mu_2 \cdot abs(randn()))$
 - end
+- $W_f = (1.0 - \epsilon_1)W_{f-1} + \epsilon_1 \cdot \max(0.0, \epsilon_3(W_{f-1} + \Pi_{-1} - I_{-1}))$
+- $W_b = (1.0 - \epsilon_1)W_{b-1} + \epsilon_1 \cdot \max(0, \epsilon_2(\Pi_{b-1} + r L_{-1}) + \epsilon_4 (H_{b-1} - M_{-1}))$
+- $w_g = w_{g-1}(1 + \delta_1 - \delta_2 \frac{p-p_{-1}}{p_{-1}})$
 - $g^D = g^D_{-1}(1 + \delta_1 - \delta_2 \frac{p-p_{-1}}{p_{-1}})$
-- $C_w^D = (1 - \alpha_5) C_{w-1}^D + \alpha_5 \cdot \max\{0, \alpha_1 (W_{-1}-T_{iw-1}-T_{ew-1}-r L_{w-1}) + \alpha_2 (M_{w-1} + H_{w-1} - L_{w-1})\}$
-- $C_i^D = (1 - \alpha_5) C_{i-1}^D + \alpha_5 \cdot \max(0, \alpha_3 (\Pi_{i-1}-T_{ii-1}-T_{ei-1}) + \alpha_4 (M_{i-1} + E_{i-1}))$
+- $C_w^D = ((1 - \alpha_5) C_{w-1}^D + \alpha_5 \cdot \max\{0, \alpha_1 (W^e-T_{iw}^e-T_{ew}^e-r L_{w-1}) + \alpha_2 (M_{w-1} + H_{w-1} - L_{w-1})\}) \frac{C_{w-1}}{C_{w-1}-\Delta C_{w-1}}$
+- $C_i^D = ((1 - \alpha_5) C_{i-1}^D + \alpha_5 \cdot \max(0, \alpha_3 (\Pi_i^e-T_{ii}^e-T_{ei}^e) + \alpha_4 (M_{i-1} + E_{i-1}))) \frac{C_{w-1}}{C_{w-1}-\Delta C_{w-1}}$
 - $C_w = \frac{C_w^D}{\max(1, \frac{C_w^D + C_i^D + G^D}{p \cdot \min(\zeta_1 k_{-1}, \zeta_2)})}$
 - $C_i = \frac{C_i^D}{\max(1, \frac{C_w^D + C_i^D + G^D}{p \cdot \min(\zeta_1 k_{-1}, \zeta_2)})}$
 - $G = \frac{G^D}{\max(1, \frac{C_w^D + C_i^D + G^D}{p \cdot \min(\zeta_1 k_{-1}, \zeta_2)})}$
@@ -58,8 +59,8 @@
 - $T_{ii} = \tau_1 \Pi_{i-1}$
 - $T_{iw} = \tau_1 W_{-1}$
 - $T_{ff} = \tau_2 (C+I+G-W_f-T_{ef}-r L_{f-1})$
-- $\Pi_i = max(0, \theta_1 \frac{E_{i-1}}{E_{-1}} (\Pi - I) + \theta_2 (M_{f-1} - L_{f-1}))$
-- $\Pi_b = max(0, \theta_1 \frac{E_{b-1}}{E_{-1}} (\Pi - I) + \theta_2 (M_{f-1} - L_{f-1}))$
+- $\Pi_i = max(0, \frac{E_{i-1}}{E_{-1}}(\theta_1 (\Pi - I) + \theta_2 (M_{f-1} - L_{f-1})))$
+- $\Pi_b = max(0, \frac{E_{b-1}}{E_{-1}}(\theta_1 (\Pi - I) + \theta_2 (M_{f-1} - L_{f-1})))$
 - $T_{fb} = max(0, \tau_2 (\Pi_b + r L_{-1} - W_b))$
 - $H_w = \iota_1 C_w$
 - $L_w = \iota_2 W$
@@ -72,6 +73,7 @@
 
 # 3. 定義式
 
+- $x^e = ((1 - \lambda_e)*x^e[t-1] + \lambda_e*x[t-1])*x[t-1]/(x[t-1]-Δx[t-1])$
 - $u = \frac{c + g}{\zeta_1 k_{-1}}$
 - $NL_w = -C_w+W-T_{iw}-T_{ew}-r L_{w-1}$
 - $NL_i = -C_i-T_{ii}-T_{ei}+\Pi_i$
@@ -220,7 +222,7 @@
 - $\epsilon_4 = 0.02$
 - $\zeta_1 = 1.0$
 - $\zeta_2 = 300.0$ (シミュレーションのための初期値)
-- $\zeta_3 = 0.0232$
+- $\zeta_3 = 0.0215$
 - $\theta_1 = 0.2$
 - $\theta_2 = 0.1$
 - $\iota_1 = 0.1$
@@ -231,7 +233,7 @@
 - $\mu_1 = 0.3$
 - $\mu_2 = 0.05$
 - $\mu_3 = 0.5$
-- $\tau_1 = 0.3$
+- $\tau_1 = 0.2$
 - $\tau_2 = 0.2$
 - $mu = 0.2$
 - $u^T = 0.8$
@@ -240,10 +242,10 @@
 
 # 6. 今後発展させる方向性について
 
-- 期待値を導入する。期待値は、 $x^e=((1 - \lambda_e) x^e_{-1} + \lambda_e x_{-1})\frac{x_{-1}}{x_{-1}-\Delta x_{-1}}$ の形で計算する。経済が安定して拡大しているときは消費性向が増加し、経済が停滞しているときは消費性向が減少する傾向が、生み出される見込み
+- 経済が安定して拡大しているときは消費性向が増加し、経済が停滞しているときは消費性向が減少する傾向を、再現する方法はないか？
 - パラメータのカリブレーションと推定をする
 - 新規株式発行と自社株買いを追加する。売上規模(名目値)と発行部数が比例する状態が望ましいかもしれない。企業の資金調達方法が追加される
-- 時価変動と配当であらわされる収益率が高いほど、ポートフォリオ配分割合が増えるような行動方程式を採用する。
+- 時価変動と配当であらわされる収益率が高いほど、ポートフォリオ配分割合目標が増えるような行動方程式を採用する。
 - 政府部門内で資本ストックを作る。公的固定資本形成を作る
 - 技術投資や研究投資（Spring-8みたいなの作ったり、学者に給料を払ったり）の増加が、技術進歩速度を上げることを記述できるように、政府と企業の投資と賃金にそれ専用の変数を導入する
 - AB化する
