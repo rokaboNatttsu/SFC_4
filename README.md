@@ -75,7 +75,7 @@
 
 # 3. 定義式
 
-- $x^e = ((1 - \lambda_e)*x^e[t-1] + \lambda_e*x[t-1])*x[t-1]/(x[t-1]-Δx[t-1])$
+- $x^e = ((1 - \lambda_e) x^e_{-1} + \lambda_e x_{-1}) \frac{x_{-1}}{x_{-1}-\Delta x_{-1}}$
 - $u = \frac{c + g}{\zeta_1 k_{-1}}$
 - $NL_w = -C_w+W-T_{iw}-T_{ew}-r L_{w-1}$
 - $NL_i = -C_i-T_{ii}-T_{ei}+\Pi_i$
@@ -200,7 +200,7 @@
 - [x] $e = e_i + e_b$
 - [x] $L = L_w + L_f$
 - [x] $H = H_w + H_f$
-- [ ] $NW_w + NW_i + NW_f + NW_b + NW_g = 0$
+- [ ] $NW_w + NW_i + NW_f + NW_b + NW_g = K$
 - [ ] $NW_w = M_w - L_w + H_w$
 - [ ] $NW_i = M_i + E_i$
 - [ ] $NW_f = K + M_f - E - L_f$
