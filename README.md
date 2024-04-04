@@ -199,7 +199,7 @@
 - [ ] $E = E_i + E_b$
 - [x] $e = e_i + e_b$
 - [x] $L = L_w + L_f$
-- [x] $H = H_w + H_f$
+- [ ] $H = H_w + H_b$
 - [ ] $NW_w + NW_i + NW_f + NW_b + NW_g = K$
 - [ ] $NW_w = M_w - L_w + H_w$
 - [ ] $NW_i = M_i + E_i$
